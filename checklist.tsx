@@ -35,38 +35,141 @@ import {
   Loader2,
 } from "lucide-react"
 import jsPDF from "jspdf"
-import OpenAI from 'openai'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 
-interface AlertData {
-  id: string;
-  message: string;
-  time: string;
-  stationInfo: {
-    number: string;
-    voltage: string;
-    commissionDate: string;
-    capacity: string;
-    location: string;
-    status: string;
-  };
-  weather: {
-    temperature: string;
-    wind: string;
-    visibility: string;
-    condition: string;
-    suggestion: string;
-  };
-  tools: string[];
-  parts: {
-    name: string;
-    stock: string;
-    priority: string;
-  }[];
-  maintenanceSteps: string[];
-  usedParts: string;
-}
+// Move alertData outside component to prevent recreation on every render
+const alertData = [
+  {
+    id: "A-205",
+    message: "Substation #A-205 voltage anomaly detected, requires immediate maintenance",
+    time: "28 December 2024, 14:15",
+    stationInfo: {
+      number: "A-205",
+      voltage: "35kV/10kV",
+      commissionDate: "March 2016",
+      capacity: "2×16MVA",
+      location: "15 Rue de la Paix, 75001 Paris, France",
+      status: "Partial Fault",
+    },
+    weather: {
+      temperature: "-2°C",
+      wind: "Force 3",
+      visibility: "Good",
+      condition: "Cloudy",
+      suggestion:
+        "Low temperature conditions. Ensure proper cold weather protection. Recommend starting maintenance after 10:00 AM.",
+    },
+    tools: [
+      "Digital Multimeter",
+      "Insulation Resistance Tester",
+      "Clamp Ammeter",
+      "Screwdriver Set",
+      "Electrical Tape",
+      "Safety Helmet",
+      "Insulating Gloves",
+      "Voltage Detector",
+    ],
+    parts: [
+      { name: "35kV Lightning Arrester", stock: "In Stock", priority: "High" },
+      { name: "10kV Switchgear Fuse", stock: "In Stock", priority: "Medium" },
+      { name: "Voltage Transformer", stock: "Requires Allocation", priority: "Low" },
+      { name: "Contactor", stock: "In Stock", priority: "Medium" },
+    ],
+    maintenanceSteps: [
+      "Inspect 35kV lightning arrester - Found damaged insulator",
+      "Replace lightning arrester insulator",
+      "Test insulation resistance - Normal readings",
+      "Restore power supply and conduct final testing",
+    ],
+    usedParts: "35kV Lightning Arrester Insulator × 1",
+  },
+  {
+    id: "B-108",
+    message: "Substation #B-108 transformer overheating alarm, temperature exceeds safety threshold",
+    time: "28 December 2024, 15:42",
+    stationInfo: {
+      number: "B-108",
+      voltage: "110kV/35kV",
+      commissionDate: "August 2018",
+      capacity: "1×50MVA",
+      location: "42 Unter den Linden, 10117 Berlin, Germany",
+      status: "Overheating Warning",
+    },
+    weather: {
+      temperature: "8°C",
+      wind: "Force 2",
+      visibility: "Excellent",
+      condition: "Clear",
+      suggestion: "Excellent weather conditions. Safe to proceed with immediate maintenance.",
+    },
+    tools: [
+      "Infrared Thermometer",
+      "Oil Temperature Gauge",
+      "Insulating Oil Tester",
+      "Wrench Set",
+      "Cooling Fan",
+      "Safety Helmet",
+      "Protective Suit",
+      "Gas Detector",
+    ],
+    parts: [
+      { name: "Transformer Cooler", stock: "In Stock", priority: "High" },
+      { name: "Temperature Sensor", stock: "In Stock", priority: "High" },
+      { name: "Insulating Oil", stock: "Sufficient", priority: "Medium" },
+      { name: "Heat Sink", stock: "Requires Allocation", priority: "Medium" },
+    ],
+    maintenanceSteps: [
+      "Inspect transformer temperature sensor - Found sensor malfunction",
+      "Replace temperature sensor",
+      "Check cooling system - Clean heat sinks",
+      "Test temperature monitoring system - Normal operation",
+    ],
+    usedParts: "Temperature Sensor × 1",
+  },
+  {
+    id: "C-312",
+    message: "Substation #C-312 switchgear fault, unable to operate normally",
+    time: "28 December 2024, 16:28",
+    stationInfo: {
+      number: "C-312",
+      voltage: "10kV/0.4kV",
+      commissionDate: "January 2020",
+      capacity: "3×800kVA",
+      location: "25 Via del Corso, 00186 Rome, Italy",
+      status: "Switch Fault",
+    },
+    weather: {
+      temperature: "18°C",
+      wind: "Force 1",
+      visibility: "Good",
+      condition: "Light Rain",
+      suggestion:
+        "Light rain conditions. Take precautions for slip hazards and equipment waterproofing. Bring rain protection equipment.",
+    },
+    tools: [
+      "Switch Tester",
+      "Contact Resistance Tester",
+      "Mechanical Characteristics Tester",
+      "Hex Wrench",
+      "Lubricating Oil",
+      "Safety Helmet",
+      "Insulating Boots",
+      "Rain Cover",
+    ],
+    parts: [
+      { name: "Vacuum Circuit Breaker", stock: "In Stock", priority: "High" },
+      { name: "Operating Mechanism", stock: "Requires Allocation", priority: "High" },
+      { name: "Auxiliary Switch", stock: "In Stock", priority: "Medium" },
+      { name: "Spring Energy Storage Mechanism", stock: "In Stock", priority: "Low" },
+    ],
+    maintenanceSteps: [
+      "Inspect vacuum circuit breaker - Found contact wear",
+      "Replace vacuum circuit breaker",
+      "Adjust operating mechanism",
+      "Test switching function - Normal operation",
+    ],
+    usedParts: "Vacuum Circuit Breaker × 1",
+  },
+]
 
 export default function ElectricalMaintenanceAI() {
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -90,73 +193,26 @@ export default function ElectricalMaintenanceAI() {
     },
   ])
   const [currentMessage, setCurrentMessage] = useState("")
-  const [alerts, setAlerts] = useState<AlertData[]>([])
-  const [isLoadingAlerts, setIsLoadingAlerts] = useState(true)
-  const [errorLoadingAlerts, setErrorLoadingAlerts] = useState<string | null>(null)
-
-  // Checklist states (from checklist.tsx)
   const [checklistItems, setChecklistItems] = useState<{ id: string; label: string; checked: boolean }[]>([])
   const [checklistProgress, setChecklistProgress] = useState(0)
   const [isSubmittingChecklist, setIsSubmittingChecklist] = useState(false)
   const [checklistSubmitted, setChecklistSubmitted] = useState(false)
   const [maintenanceChecklistItems, setMaintenanceChecklistItems] = useState<
     {
-      id: string;
-      label: string;
-      checked: boolean;
-      phase: "preparation" | "maintenance" | "verification";
+      id: string
+      label: string
+      checked: boolean
+      phase: "preparation" | "maintenance" | "verification"
     }[]
   >([])
   const [allChecklistItemsCompleted, setAllChecklistItemsCompleted] = useState(false)
   const [completedChecklistItems, setCompletedChecklistItems] = useState(0)
   const [totalChecklistItems, setTotalChecklistItems] = useState(0)
 
-  // Get current alert data from the state (Moved back inside)
-  const currentAlert = alerts.length > 0 ? alerts[currentAlertIndex] : null;
+  // Get current alert data
+  const currentAlert = alertData[currentAlertIndex]
 
-  // Fetch alerts from API on component mount
-  useEffect(() => {
-    const fetchAlerts = async () => {
-      try {
-        const response = await fetch('/api/alerts')
-        if (!response.ok) {
-          throw new Error(`Error fetching alerts: ${response.statusText}`)
-        }
-        const data = await response.json()
-        // Parse JSON strings back to objects/arrays
-        const parsedData: AlertData[] = data.map((alert: any) => ({
-          ...alert,
-          stationInfo: JSON.parse(alert.stationInfo),
-          weather: JSON.parse(alert.weather),
-          tools: JSON.parse(alert.tools),
-          parts: JSON.parse(alert.parts),
-          maintenanceSteps: JSON.parse(alert.maintenanceSteps),
-        }))
-        setAlerts(parsedData)
-      } catch (error: any) {
-        console.error('Failed to fetch alerts:', error)
-        setErrorLoadingAlerts(error.message)
-      } finally {
-        setIsLoadingAlerts(false)
-      }
-    }
-
-    fetchAlerts()
-  }, []) // Empty dependency array means this effect runs once on mount
-
-  // Component loads notification on mount (only if alerts are loaded and available)
-  useEffect(() => {
-    if (!isTaskStarted && alerts.length > 0 && !isLoadingAlerts && !errorLoadingAlerts) {
-      // Delay notification display to simulate new alert arrival
-      const timer = setTimeout(() => {
-        setShowNotification(true)
-      }, 1000)
-
-      return () => clearTimeout(timer)
-    }
-  }, [isTaskStarted, alerts, isLoadingAlerts, errorLoadingAlerts]) // Depend on alerts state
-
-  // Generate checklist items based on current alert data using useCallback (from checklist.tsx)
+  // Generate checklist items based on current alert data using useCallback
   const generateChecklistItems = useCallback(() => {
     if (!currentAlert) return
 
@@ -168,14 +224,14 @@ export default function ElectricalMaintenanceAI() {
       },
       { id: "voltage", label: `Check ${currentAlert.stationInfo.voltage} voltage levels`, checked: false },
       { id: "safety", label: "Perform safety protocols and wear appropriate PPE", checked: false },
-      ...(currentAlert.tools || []).map((tool: string, index: number) => ({
+      ...currentAlert.tools.map((tool, index) => ({
         id: `tool-${index}`,
         label: `Verify ${tool} is available and functional`,
         checked: false,
       })),
-      ...(currentAlert.parts || [])
+      ...currentAlert.parts
         .filter((part) => part.priority === "High")
-        .map((part: { name: string; stock: string; priority: string }, index: number) => ({
+        .map((part, index) => ({
           id: `part-${index}`,
           label: `Confirm ${part.name} availability (${part.stock})`,
           checked: false,
@@ -192,9 +248,9 @@ export default function ElectricalMaintenanceAI() {
     setChecklistItems(items)
     setChecklistProgress(0)
     setChecklistSubmitted(false)
-  }, [currentAlert]) // Depend on currentAlert
+  }, [currentAlert])
 
-  // Generate maintenance checklist items (from checklist.tsx)
+  // 生成维修清单项目
   const generateMaintenanceChecklistItems = useCallback(() => {
     if (!currentAlert) return
 
@@ -218,164 +274,181 @@ export default function ElectricalMaintenanceAI() {
         checked: false,
         phase: "preparation" as const,
       },
-      { id: "tools-verification", label: "Verify tools are available and functional", checked: false, phase: "preparation" as const },
+      {
+        id: "tools-verification",
+        label: "Verify tools are available and functional",
+        checked: false,
+        phase: "preparation" as const,
+      },
 
       // Phase 2: During maintenance
-      { id: "component-inspection", label: "Inspect all components status and connections", checked: false, phase: "maintenance" as const },
-      { id: "damaged-parts-replacement", label: "Replace damaged and aging components", checked: false, phase: "maintenance" as const },
-      { id: "electrical-connections", label: "Check and tighten all electrical connections", checked: false, phase: "maintenance" as const },
-      { id: "insulation-test", label: "Perform insulation resistance testing", checked: false, phase: "maintenance" as const },
+      {
+        id: "component-inspection",
+        label: "Inspect all components status and connections",
+        checked: false,
+        phase: "maintenance" as const,
+      },
+      {
+        id: "damaged-parts-replacement",
+        label: "Replace damaged and aging components",
+        checked: false,
+        phase: "maintenance" as const,
+      },
+      {
+        id: "electrical-connections",
+        label: "Check and tighten all electrical connections",
+        checked: false,
+        phase: "maintenance" as const,
+      },
+      {
+        id: "insulation-test",
+        label: "Perform insulation resistance testing",
+        checked: false,
+        phase: "maintenance" as const,
+      },
 
       // Phase 3: Verify all indicators are normal
-      { id: "voltage-verification", label: `Verify ${currentAlert.stationInfo?.voltage} voltage levels are normal`, checked: false, phase: "verification" as const },
-      { id: "load-test", label: "Perform load testing to confirm equipment normal operation", checked: false, phase: "verification" as const },
-      { id: "protection-systems", label: "Verify protection systems function normally", checked: false, phase: "verification" as const },
-      { id: "final-inspection", label: "Final inspection to confirm all indicators within normal range", checked: false, phase: "verification" as const },
+      {
+        id: "voltage-verification",
+        label: `Verify ${currentAlert.stationInfo.voltage} voltage levels are normal`,
+        checked: false,
+        phase: "verification" as const,
+      },
+      {
+        id: "load-test",
+        label: "Perform load testing to confirm equipment normal operation",
+        checked: false,
+        phase: "verification" as const,
+      },
+      {
+        id: "protection-systems",
+        label: "Verify protection systems function normally",
+        checked: false,
+        phase: "verification" as const,
+      },
+      {
+        id: "final-inspection",
+        label: "Final inspection to confirm all indicators within normal range",
+        checked: false,
+        phase: "verification" as const,
+      },
     ]
 
     setMaintenanceChecklistItems(items)
     setTotalChecklistItems(items.length)
     setCompletedChecklistItems(0)
     setAllChecklistItemsCompleted(false)
-  }, [currentAlert]) // Depend on currentAlert
+  }, [currentAlert])
 
-  // Generate checklist when alert changes or task starts (from checklist.tsx)
+  // Component loads notification on mount
+  useEffect(() => {
+    if (!isTaskStarted) {
+      // Delay notification display to simulate new alert arrival
+      const timer = setTimeout(() => {
+        setShowNotification(true)
+      }, 1000)
+
+      return () => clearTimeout(timer)
+    }
+  }, [isTaskStarted])
+
+  // Generate checklist when alert changes or task starts
   useEffect(() => {
     if (currentAlert && isTaskStarted) {
-      generateChecklistItems();
-      generateMaintenanceChecklistItems();
-    } else if (!isTaskStarted) { // Reset checklists when task ends
-       setChecklistItems([]);
-       setChecklistProgress(0);
-       setIsSubmittingChecklist(false);
-       setChecklistSubmitted(false);
-       setMaintenanceChecklistItems([]);
-       setAllChecklistItemsCompleted(false);
-       setCompletedChecklistItems(0);
-       setTotalChecklistItems(0);
+      generateChecklistItems()
+      generateMaintenanceChecklistItems() // 添加这行
     }
-  }, [currentAlert, isTaskStarted, generateChecklistItems, generateMaintenanceChecklistItems]); // Depend on currentAlert and isTaskStarted
+  }, [currentAlert, isTaskStarted, generateChecklistItems, generateMaintenanceChecklistItems])
 
   // Calculate task duration
   const getTaskDuration = () => {
-    if (!taskStartTime) return "00:00:00";
+    if (!taskStartTime) return "00:00:00"
 
-    const endTime = taskEndTime || new Date();
-    const diff = endTime.getTime() - taskStartTime.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    const endTime = taskEndTime || new Date()
+    const diff = endTime.getTime() - taskStartTime.getTime()
+    const hours = Math.floor(diff / (1000 * 60 * 60))
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000)
 
-    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-  };
+    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+  }
 
   // Real-time task duration update
-  const [taskDuration, setTaskDuration] = useState("00:00:00");
+  const [taskDuration, setTaskDuration] = useState("00:00:00")
 
   useEffect(() => {
     if (isTaskStarted && taskStartTime && !isTaskCompleted) {
       const interval = setInterval(() => {
-        setTaskDuration(getTaskDuration());
-      }, 1000);
+        setTaskDuration(getTaskDuration())
+      }, 1000)
 
-      return () => clearInterval(interval);
+      return () => clearInterval(interval)
     }
-  }, [isTaskStarted, taskStartTime, isTaskCompleted]);
+  }, [isTaskStarted, taskStartTime, isTaskCompleted])
 
   // Refresh alert function
   const handleRefreshAlert = async () => {
-    if (isRefreshing) return;
+    if (isRefreshing) return
 
-    setIsRefreshing(true);
-    setShowNotification(false);
+    setIsRefreshing(true)
+    setShowNotification(false)
 
     // Simulate data loading delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    // Switch to next alert data
+    setCurrentAlertIndex((prev) => (prev + 1) % alertData.length)
+    setIsRefreshing(false)
 
     // Start maintenance task
-    setIsTaskStarted(true);
-    setIsTaskCompleted(false);
-    setTaskStartTime(new Date());
-    setTaskEndTime(null);
-    setTaskDuration("00:00:00");
-    setMaintenanceResult("");
-    setMaintenanceNotes("");
-    setGeneratedReport(null);
-    // Switch to the first alert from the fetched data
-    setCurrentAlertIndex((prev) => (prev + 1) % alerts.length);
-    setIsRefreshing(false);
-  };
+    setIsTaskStarted(true)
+    setIsTaskCompleted(false)
+    setTaskStartTime(new Date())
+    setTaskEndTime(null)
+    setTaskDuration("00:00:00")
+    setMaintenanceResult("")
+    setMaintenanceNotes("")
+    setGeneratedReport(null)
+  }
 
-  // Handle checklist item toggle (from checklist.tsx)
-  const handleChecklistItemToggle = (id: string) => {
-    const updatedItems = checklistItems.map((item) => (item.id === id ? { ...item, checked: !item.checked } : item));
-
-    setChecklistItems(updatedItems);
-
-    // Calculate progress
-    const checkedCount = updatedItems.filter((item) => item.checked).length;
-    const totalCount = updatedItems.length; // Get total count
-    const progress = totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0; // Avoid division by zero
-    setChecklistProgress(progress);
-  };
-
-  // Submit checklist to "database" (from checklist.tsx - simplified)
-  const handleSubmitChecklist = async () => {
-    setIsSubmittingChecklist(true);
-
-    // Simulate API call to update database (Replace with actual API call later)
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // Update "database" (in real app, this would be an API call)
-    console.log("Inspection Checklist submitted:", {
-      stationId: currentAlert?.stationInfo?.number, // Use optional chaining
-      timestamp: new Date().toISOString(),
-      items: checklistItems,
-      completedBy: "John Smith", // Replace with actual user
-      completionRate: checklistProgress,
-    });
-
-    setIsSubmittingChecklist(false);
-    setChecklistSubmitted(true);
-  };
-
-  // Handle maintenance checklist item toggle (from checklist.tsx)
+  // 处理维修清单项目切换
   const handleMaintenanceChecklistToggle = (id: string) => {
     const updatedItems = maintenanceChecklistItems.map((item) =>
       item.id === id ? { ...item, checked: !item.checked } : item,
-    );
+    )
 
-    setMaintenanceChecklistItems(updatedItems);
+    setMaintenanceChecklistItems(updatedItems)
 
-    // Calculate completed items and check if all are completed
-    const completedCount = updatedItems.filter((item) => item.checked).length;
-    const totalCount = updatedItems.length; // Get total count
-    setCompletedChecklistItems(completedCount);
-    setAllChecklistItemsCompleted(completedCount === totalCount);
-  };
+    // 计算完成的项目数量
+    const completedCount = updatedItems.filter((item) => item.checked).length
+    setCompletedChecklistItems(completedCount)
 
-  // Complete maintenance (modified to check checklist completion)
+    // 检查是否所有项目都完成
+    const allCompleted = completedCount === updatedItems.length
+    setAllChecklistItemsCompleted(allCompleted)
+  }
+
+  // 修改完成任务函数
   const handleCompleteTask = () => {
     if (!allChecklistItemsCompleted) {
-      alert("Please complete all maintenance checklist items before ending the task!");
-      return;
+      alert("Please complete all maintenance checklist items before ending the task!")
+      return
     }
 
-    setIsTaskCompleted(true);
-    setTaskEndTime(new Date());
-    setTaskDuration(getTaskDuration());
+    setIsTaskCompleted(true)
+    setTaskEndTime(new Date())
+    setTaskDuration(getTaskDuration())
     // Auto switch to maintenance log generation page
-    setActiveTab("report");
-  };
+    setActiveTab("report")
+  }
 
-  // Generate maintenance log (add check for currentAlert)
+  // Generate maintenance log
   const handleGenerateReport = () => {
-    if (!currentAlert) return;
-    const report = `\
+    const report = `
 # Electrical Substation Maintenance Report
 
 ## Basic Maintenance Information
-- **Substation Number**: ${currentAlert!.stationInfo?.number}
+- **Substation Number**: ${currentAlert.stationInfo.number}
 - **Maintenance Date**: ${new Date().toLocaleDateString("en-GB")}
 - **Technician**: John Smith
 - **Start Time**: ${taskStartTime?.toLocaleTimeString("en-GB", {
@@ -391,19 +464,19 @@ export default function ElectricalMaintenanceAI() {
 - **Duration**: ${taskDuration}
 
 ## Fault Description
-${currentAlert!.message}
+${currentAlert.message}
 
 ## Equipment Information
-- **Voltage Level**: ${currentAlert!.stationInfo?.voltage}
-- **Load Capacity**: ${currentAlert!.stationInfo?.capacity}
-- **Commission Date**: ${currentAlert!.stationInfo?.commissionDate}
-- **Equipment Location**: ${currentAlert!.stationInfo?.location}
+- **Voltage Level**: ${currentAlert.stationInfo.voltage}
+- **Load Capacity**: ${currentAlert.stationInfo.capacity}
+- **Commission Date**: ${currentAlert.stationInfo.commissionDate}
+- **Equipment Location**: ${currentAlert.stationInfo.location}
 
 ## Maintenance Process
-${(currentAlert!.maintenanceSteps || []).map((step: string, index: number) => `${index + 1}. ${step}`).join("\n")}
+${currentAlert.maintenanceSteps.map((step, index) => `${index + 1}. ${step}`).join("\n")}
 
 ## Parts Used
-${currentAlert!.usedParts}
+${currentAlert.usedParts}
 
 ## Maintenance Results
 ${maintenanceResult || "Maintenance completed successfully. Equipment restored to normal operation."}
@@ -412,153 +485,153 @@ ${maintenanceResult || "Maintenance completed successfully. Equipment restored t
 ${maintenanceNotes || "No additional remarks."}
 
 ## Weather Conditions
-- **Temperature**: ${currentAlert!.weather?.temperature}
-- **Wind**: ${currentAlert!.weather?.wind}
-- **Weather**: ${currentAlert!.weather?.condition}
-- **Visibility**: ${currentAlert!.weather?.visibility}
+- **Temperature**: ${currentAlert.weather.temperature}
+- **Wind**: ${currentAlert.weather.wind}
+- **Weather**: ${currentAlert.weather.condition}
+- **Visibility**: ${currentAlert.weather.visibility}
 
 ---
 *Report generated: ${new Date().toLocaleString("en-GB")}*
-    `;
+    `
 
-    setGeneratedReport(report);
-  };
+    setGeneratedReport(report)
+  }
 
   // Enhanced PDF export function with automatic pagination
   const handleExportPDF = async () => {
-    if (!generatedReport || !currentAlert) return; // Add check for currentAlert
+    if (!generatedReport) return
 
-    setIsGeneratingPDF(true);
+    setIsGeneratingPDF(true)
 
     try {
       // Create new PDF document
-      const doc = new jsPDF();
-      const pageHeight = doc.internal.pageSize.height;
-      const pageWidth = doc.internal.pageSize.width;
-      const margin = 20;
-      const lineHeight = 6;
-      let yPosition = 30;
+      const doc = new jsPDF()
+      const pageHeight = doc.internal.pageSize.height
+      const pageWidth = doc.internal.pageSize.width
+      const margin = 20
+      const lineHeight = 6
+      let yPosition = 30
 
       // Helper function to add new page if needed
       const checkPageBreak = (requiredSpace = 15) => {
         if (yPosition + requiredSpace > pageHeight - margin) {
-          doc.addPage();
-          yPosition = margin;
+          doc.addPage()
+          yPosition = margin
         }
-      };
+      }
 
       // Helper function to add text with automatic wrapping and pagination
       const addText = (text: string, fontSize = 10, isBold = false) => {
-        doc.setFontSize(fontSize);
+        doc.setFontSize(fontSize)
         if (isBold) {
-          doc.setFont("helvetica", "bold");
+          doc.setFont("helvetica", "bold")
         } else {
-          doc.setFont("helvetica", "normal");
+          doc.setFont("helvetica", "normal")
         }
 
-        const maxWidth = pageWidth - 2 * margin;
-        const lines = doc.splitTextToSize(text, maxWidth);
+        const maxWidth = pageWidth - 2 * margin
+        const lines = doc.splitTextToSize(text, maxWidth)
 
         for (let i = 0; i < lines.length; i++) {
-          checkPageBreak();
-          doc.text(lines[i], margin, yPosition);
-          yPosition += lineHeight;
+          checkPageBreak()
+          doc.text(lines[i], margin, yPosition)
+          yPosition += lineHeight
         }
-      };
+      }
 
       // Helper function to add section spacing
       const addSpacing = (space = 10) => {
-        yPosition += space;
-        checkPageBreak();
-      };
+        yPosition += space
+        checkPageBreak()
+      }
 
       // Document header
-      addText("ELECTRICAL SUBSTATION MAINTENANCE REPORT", 18, true);
-      addText(`Station #${currentAlert!.stationInfo?.number}`, 14, true);
-      addSpacing(15);
+      addText("ELECTRICAL SUBSTATION MAINTENANCE REPORT", 18, true)
+      addText(`Station #${currentAlert.stationInfo.number}`, 14, true)
+      addSpacing(15)
 
       // Basic Information Section
-      addText("BASIC MAINTENANCE INFORMATION", 14, true);
-      addSpacing(8);
+      addText("BASIC MAINTENANCE INFORMATION", 14, true)
+      addSpacing(8)
 
       const basicInfo = [
-        `Station Number: ${currentAlert!.stationInfo?.number}`,
+        `Station Number: ${currentAlert.stationInfo.number}`,
         `Maintenance Date: ${new Date().toLocaleDateString("en-GB")}`,
         `Technician: John Smith`,
         `Start Time: ${taskStartTime?.toLocaleTimeString("en-GB")}`,
         `End Time: ${taskEndTime?.toLocaleTimeString("en-GB")}`,
         `Duration: ${taskDuration}`,
-      ];
+      ]
 
       basicInfo.forEach((info) => {
-        addText(info, 10);
-      });
-      addSpacing();
+        addText(info, 10)
+      })
+      addSpacing()
 
       // Fault Description Section
-      addText("FAULT DESCRIPTION", 14, true);
-      addSpacing(8);
-      addText(currentAlert!.message, 10);
-      addSpacing();
+      addText("FAULT DESCRIPTION", 14, true)
+      addSpacing(8)
+      addText(currentAlert.message, 10)
+      addSpacing()
 
       // Equipment Information Section
-      addText("EQUIPMENT INFORMATION", 14, true);
-      addSpacing(8);
+      addText("EQUIPMENT INFORMATION", 14, true)
+      addSpacing(8)
 
       const equipmentInfo = [
-        `Voltage Level: ${currentAlert!.stationInfo?.voltage}`,
-        `Load Capacity: ${currentAlert!.stationInfo?.capacity}`,
-        `Commission Date: ${currentAlert!.stationInfo?.commissionDate}`,
-        `Location: ${currentAlert!.stationInfo?.location}`,
-      ];
+        `Voltage Level: ${currentAlert.stationInfo.voltage}`,
+        `Load Capacity: ${currentAlert.stationInfo.capacity}`,
+        `Commission Date: ${currentAlert.stationInfo.commissionDate}`,
+        `Location: ${currentAlert.stationInfo.location}`,
+      ]
 
       equipmentInfo.forEach((info) => {
-        addText(info, 10);
-      });
-      addSpacing();
+        addText(info, 10)
+      })
+      addSpacing()
 
       // Maintenance Process Section
-      addText("MAINTENANCE PROCESS", 14, true);
-      addSpacing(8);
+      addText("MAINTENANCE PROCESS", 14, true)
+      addSpacing(8)
 
-      (currentAlert!.maintenanceSteps || []).forEach((step, index) => {
-        addText(`${index + 1}. ${step}`, 10);
-      });
-      addSpacing();
+      currentAlert.maintenanceSteps.forEach((step, index) => {
+        addText(`${index + 1}. ${step}`, 10)
+      })
+      addSpacing()
 
       // Parts Used Section
-      addText("PARTS USED", 14, true);
-      addSpacing(8);
-      addText(currentAlert!.usedParts, 10);
-      addSpacing();
+      addText("PARTS USED", 14, true)
+      addSpacing(8)
+      addText(currentAlert.usedParts, 10)
+      addSpacing()
 
       // Maintenance Results Section
-      addText("MAINTENANCE RESULTS", 14, true);
-      addSpacing(8);
+      addText("MAINTENANCE RESULTS", 14, true)
+      addSpacing(8)
       const result = maintenanceResult || "Maintenance completed successfully. Equipment restored to normal operation."
-      addText(result, 10);
-      addSpacing();
+      addText(result, 10)
+      addSpacing()
 
       // Additional Notes Section
-      addText("ADDITIONAL NOTES", 14, true);
-      addSpacing(8);
+      addText("ADDITIONAL NOTES", 14, true)
+      addSpacing(8)
       const notes = maintenanceNotes || "No additional remarks."
-      addText(notes, 10);
-      addSpacing();
+      addText(notes, 10)
+      addSpacing()
 
       // Weather Conditions Section
-      addText("WEATHER CONDITIONS", 14, true);
-      addSpacing(8);
+      addText("WEATHER CONDITIONS", 14, true)
+      addSpacing(8)
 
       const weatherInfo = [
-        `Temperature: ${currentAlert!.weather?.temperature}`,
-        `Wind: ${currentAlert!.weather?.wind}`,
-        `Weather: ${currentAlert!.weather?.condition}`,
-        `Visibility: ${currentAlert!.weather?.visibility}`,
+        `Temperature: ${currentAlert.weather.temperature}`,
+        `Wind: ${currentAlert.weather.wind}`,
+        `Weather: ${currentAlert.weather.condition}`,
+        `Visibility: ${currentAlert.weather.visibility}`,
       ]
 
       weatherInfo.forEach((info) => {
-        addText(info, 10);
+        addText(info, 10)
       })
       addSpacing()
 
@@ -578,7 +651,7 @@ ${maintenanceNotes || "No additional remarks."}
       }
 
       // Generate filename
-      const fileName = `maintenance-report-${currentAlert!.stationInfo?.number}-${new Date().toISOString().split("T")[0]}.pdf`
+      const fileName = `maintenance-report-${currentAlert.stationInfo.number}-${new Date().toISOString().split("T")[0]}.pdf`
 
       // Save PDF
       doc.save(fileName)
@@ -593,56 +666,66 @@ ${maintenanceNotes || "No additional remarks."}
     }
   }
 
-  const handleSendMessage = async () => {
-    if (!currentMessage.trim()) return;
+  // Handle checklist item toggle
+  const handleChecklistItemToggle = (id: string) => {
+    const updatedItems = checklistItems.map((item) => (item.id === id ? { ...item, checked: !item.checked } : item))
 
-    const userMessage = {
-      type: "user",
-      message: currentMessage,
-      timestamp: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
-    };
+    setChecklistItems(updatedItems)
 
-    setChatMessages((prev) => [...prev, userMessage]);
-    setCurrentMessage("");
+    // Calculate progress
+    const checkedCount = updatedItems.filter((item) => item.checked).length
+    const progress = Math.round((checkedCount / updatedItems.length) * 100)
+    setChecklistProgress(progress)
+  }
 
-    // Use DeepSeek API Key and base URL
-    const apiKey = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY; // Use DeepSeek API key
-    const baseUrl = "https://api.deepseek.com/v1"; // DeepSeek API base URL
+  // Submit checklist to "database"
+  const handleSubmitChecklist = async () => {
+    setIsSubmittingChecklist(true)
 
-    if (!apiKey) {
-      console.error("DeepSeek API key is not set.");
-       setChatMessages((prev) => [
-        ...prev,
-        {
-          type: "ai",
-          message: "Error: DeepSeek API key is not configured.",
-          timestamp: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
-        },
-      ]);
-      return;
-    }
+    // Simulate API call to update database
+    await new Promise((resolve) => setTimeout(resolve, 1500))
 
-    try {
-      // Create OpenAI client instance with DeepSeek base URL
-      const openai = new OpenAI({
-        apiKey: apiKey,
-        baseURL: baseUrl,
-        dangerouslyAllowBrowser: true, // Allow in browser environment for testing
-      });
+    // Update "database" (in real app, this would be an API call)
+    console.log("Checklist submitted to database:", {
+      stationId: currentAlert.stationInfo.number,
+      timestamp: new Date().toISOString(),
+      items: checklistItems,
+      completedBy: "John Smith",
+      completionRate: checklistProgress,
+    })
 
-      // Call DeepSeek chat completions API
-      const response = await openai.chat.completions.create({
-        model: "deepseek-chat", // Specify the DeepSeek model
-        messages: [
-          { role: "system", content: "You are a helpful maintenance assistant." }, // System message
-          { role: "user", content: currentMessage }, // User message
-        ],
-         temperature: 0.7,
-         max_tokens: 500,
-      });
+    setIsSubmittingChecklist(false)
+    setChecklistSubmitted(true)
+  }
 
-      // Extract AI response
-      const aiResponse = response.choices?.[0]?.message?.content || "No response from AI.";
+  const handleSendMessage = () => {
+    if (!currentMessage.trim()) return
+
+    const newMessages = [
+      ...chatMessages,
+      {
+        type: "user",
+        message: currentMessage,
+        timestamp: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+      },
+    ]
+
+    // Simulate AI response
+    setTimeout(() => {
+      let aiResponse = ""
+      if (currentMessage.toLowerCase().includes("broken") || currentMessage.toLowerCase().includes("fault")) {
+        aiResponse =
+          "Based on sensor data, the equipment shows abnormal current readings. I recommend checking connection lines and fuses. Historical records indicate similar faults are usually caused by poor contact."
+      } else if (currentMessage.toLowerCase().includes("check") || currentMessage.toLowerCase().includes("inspect")) {
+        aiResponse =
+          "Yes, I recommend inspecting that component. Based on equipment runtime and maintenance records, the component may show signs of wear. Please use a multimeter to measure resistance values."
+      } else if (currentMessage.toLowerCase().includes("replace")) {
+        aiResponse =
+          "Equipment C has been operating for 8 years, exceeding the recommended service life (6 years). Replacement is recommended. Spare parts are in stock, model XYZ-2024."
+      } else {
+        aiResponse =
+          "I understand your question. Please provide more detailed information, such as specific fault symptoms, equipment model, or error codes, so I can give more accurate advice."
+      }
 
       setChatMessages((prev) => [
         ...prev,
@@ -651,22 +734,14 @@ ${maintenanceNotes || "No additional remarks."}
           message: aiResponse,
           timestamp: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
         },
-      ]);
+      ])
+    }, 1000)
 
-    } catch (error: any) {
-      console.error("Error calling DeepSeek API:", error);
-       setChatMessages((prev) => [
-        ...prev,
-        {
-          type: "ai",
-          message: `Error: Failed to connect to AI service. ${error.message || ''}`,
-          timestamp: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
-        },
-      ]);
-    }
-  };
+    setChatMessages(newMessages)
+    setCurrentMessage("")
+  }
 
-  // End task function (modified to reset checklist states)
+  // 在 handleEndTask 函数中添加清单重置
   const handleEndTask = () => {
     setIsTaskStarted(false)
     setIsTaskCompleted(false)
@@ -676,44 +751,12 @@ ${maintenanceNotes || "No additional remarks."}
     setMaintenanceResult("")
     setMaintenanceNotes("")
     setGeneratedReport(null)
-    // Reset checklist states
-    setChecklistItems([])
-    setChecklistProgress(0)
-    setIsSubmittingChecklist(false)
-    setChecklistSubmitted(false)
+    // 重置维修清单状态
     setMaintenanceChecklistItems([])
     setAllChecklistItemsCompleted(false)
     setCompletedChecklistItems(0)
     setTotalChecklistItems(0)
     setShowNotification(true)
-  }
-
-  // Show loading or error message while fetching alerts
-  if (isLoadingAlerts) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4 flex justify-center items-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600 mr-2" />
-        <span className="text-xl text-gray-700">Loading maintenance alerts...</span>
-      </div>
-    );
-  }
-
-  if (errorLoadingAlerts) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4 flex justify-center items-center">
-        <AlertTriangle className="h-8 w-8 text-red-600 mr-2" />
-        <span className="text-xl text-gray-700">Error loading alerts: {errorLoadingAlerts}</span>
-      </div>
-    );
-  }
-
-  if (!currentAlert) {
-     return (
-      <div className="min-h-screen bg-gray-50 p-4 flex justify-center items-center">
-        <AlertTriangle className="h-8 w-8 text-yellow-600 mr-2" />
-        <span className="text-xl text-gray-700">No alerts available.</span>
-      </div>
-    );
   }
 
   return (
@@ -728,7 +771,7 @@ ${maintenanceNotes || "No additional remarks."}
         </div>
 
         {/* Current maintenance task bar */}
-        {isTaskStarted && currentAlert && (
+        {isTaskStarted && (
           <div className="mb-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg shadow-lg">
             <div className="p-5">
               {/* Header with status icon and title */}
@@ -750,14 +793,14 @@ ${maintenanceNotes || "No additional remarks."}
                 <div className="col-span-12 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-blue-100 pb-3 border-b border-white/20">
                   <div className="flex items-center gap-1">
                     <MapPin className="h-3 w-3 flex-shrink-0" />
-                    <span className="truncate">{currentAlert.stationInfo?.location}</span>
+                    <span className="truncate">{currentAlert.stationInfo.location}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Zap className="h-3 w-3 flex-shrink-0" />
-                    <span>Substation #{currentAlert.stationInfo?.number}</span>
+                    <span>Substation #{currentAlert.stationInfo.number}</span>
                   </div>
                   <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
-                    {isTaskCompleted ? "Maintenance Complete" : currentAlert.stationInfo?.status}
+                    {isTaskCompleted ? "Maintenance Complete" : currentAlert.stationInfo.status}
                   </Badge>
                 </div>
 
@@ -788,11 +831,21 @@ ${maintenanceNotes || "No additional remarks."}
                   {!isTaskCompleted ? (
                     <Button
                       onClick={handleCompleteTask}
-                      className="bg-green-600 hover:bg-green-700 text-white"
+                      className={`${
+                        allChecklistItemsCompleted
+                          ? "bg-green-600 hover:bg-green-700"
+                          : "bg-gray-400 cursor-not-allowed"
+                      } text-white`}
                       size="sm"
+                      disabled={!allChecklistItemsCompleted}
                     >
                       <Check className="h-4 w-4 mr-2" />
                       Complete Maintenance
+                      {!allChecklistItemsCompleted && (
+                        <span className="ml-2 text-xs">
+                          ({completedChecklistItems}/{totalChecklistItems})
+                        </span>
+                      )}
                     </Button>
                   ) : (
                     <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-300 py-2 px-3">
@@ -815,7 +868,7 @@ ${maintenanceNotes || "No additional remarks."}
         )}
 
         {/* Notification-style fault alert */}
-        {showNotification && !isTaskStarted && currentAlert && (
+        {showNotification && !isTaskStarted && (
           <div
             className="fixed top-4 right-4 left-4 md:left-auto md:w-96 z-50 transform transition-all duration-500 ease-in-out animate-slide-in"
             style={{
@@ -860,7 +913,7 @@ ${maintenanceNotes || "No additional remarks."}
             <TabsTrigger value="maintenance-checklist" className="flex items-center gap-2">
               <CheckCircle className="h-4 w-4" />
               Maintenance Checklist
-              {isTaskStarted && totalChecklistItems > 0 && !allChecklistItemsCompleted && (
+              {isTaskStarted && !allChecklistItemsCompleted && (
                 <Badge variant="outline" className="ml-1 bg-white/10 text-xs">
                   {Math.round((completedChecklistItems / totalChecklistItems) * 100)}%
                 </Badge>
@@ -882,7 +935,7 @@ ${maintenanceNotes || "No additional remarks."}
             <TabsTrigger value="inspection" className="flex items-center gap-2">
               <CheckCircle className="h-4 w-4" />
               Equipment Inspection
-              {isTaskStarted && checklistItems.length > 0 && !checklistSubmitted && (
+              {isTaskStarted && !checklistSubmitted && (
                 <Badge variant="outline" className="ml-1 bg-white/10 text-xs">
                   {checklistProgress}%
                 </Badge>
@@ -892,7 +945,6 @@ ${maintenanceNotes || "No additional remarks."}
 
           {/* Pre-maintenance preparation */}
           <TabsContent value="preparation" className="space-y-6">
-            {currentAlert && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Substation basic information */}
               <Card className={isRefreshing ? "opacity-50 pointer-events-none" : ""}>
@@ -909,27 +961,27 @@ ${maintenanceNotes || "No additional remarks."}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-gray-600">Station Number</p>
-                        <p className="font-semibold">{currentAlert.stationInfo?.number}</p>
+                      <p className="font-semibold">{currentAlert.stationInfo.number}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Voltage Level</p>
-                        <p className="font-semibold">{currentAlert.stationInfo?.voltage}</p>
+                      <p className="font-semibold">{currentAlert.stationInfo.voltage}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Commission Date</p>
-                        <p className="font-semibold">{currentAlert.stationInfo?.commissionDate}</p>
+                      <p className="font-semibold">{currentAlert.stationInfo.commissionDate}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Load Capacity</p>
-                        <p className="font-semibold">{currentAlert.stationInfo?.capacity}</p>
+                      <p className="font-semibold">{currentAlert.stationInfo.capacity}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 mt-4">
                     <MapPin className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm">{currentAlert.stationInfo?.location}</span>
+                    <span className="text-sm">{currentAlert.stationInfo.location}</span>
                   </div>
                   <Badge variant="outline" className="text-green-700 border-green-300">
-                      Status: {currentAlert.stationInfo?.status}
+                    Status: {currentAlert.stationInfo.status}
                   </Badge>
                 </CardContent>
               </Card>
@@ -951,35 +1003,35 @@ ${maintenanceNotes || "No additional remarks."}
                       <Thermometer className="h-4 w-4 text-red-500" />
                       <div>
                         <p className="text-sm text-gray-600">Temperature</p>
-                          <p className="font-semibold">{currentAlert.weather?.temperature}</p>
+                        <p className="font-semibold">{currentAlert.weather.temperature}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Wind className="h-4 w-4 text-blue-500" />
                       <div>
                         <p className="text-sm text-gray-600">Wind</p>
-                          <p className="font-semibold">{currentAlert.weather?.wind}</p>
+                        <p className="font-semibold">{currentAlert.weather.wind}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Eye className="h-4 w-4 text-gray-500" />
                       <div>
                         <p className="text-sm text-gray-600">Visibility</p>
-                          <p className="font-semibold">{currentAlert.weather?.visibility}</p>
+                        <p className="font-semibold">{currentAlert.weather.visibility}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Cloud className="h-4 w-4 text-gray-500" />
                       <div>
                         <p className="text-sm text-gray-600">Conditions</p>
-                          <p className="font-semibold">{currentAlert.weather?.condition}</p>
+                        <p className="font-semibold">{currentAlert.weather.condition}</p>
                       </div>
                     </div>
                   </div>
                   <Alert className="mt-4 border-yellow-200 bg-yellow-50">
                     <AlertTriangle className="h-4 w-4 text-yellow-600" />
                     <AlertDescription className="text-yellow-800">
-                        <strong>Recommendation:</strong> {currentAlert.weather?.suggestion}
+                      <strong>Recommendation:</strong> {currentAlert.weather.suggestion}
                     </AlertDescription>
                   </Alert>
                 </CardContent>
@@ -998,7 +1050,7 @@ ${maintenanceNotes || "No additional remarks."}
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-2">
-                      {(currentAlert.tools || []).map((tool, index) => (
+                    {currentAlert.tools.map((tool, index) => (
                       <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
                         <CheckCircle className="h-4 w-4 text-green-500" />
                         <span className="text-sm">{tool}</span>
@@ -1021,7 +1073,7 @@ ${maintenanceNotes || "No additional remarks."}
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                      {(currentAlert.parts || []).map((part, index) => (
+                    {currentAlert.parts.map((part, index) => (
                       <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                         <div>
                           <p className="font-medium">{part.name}</p>
@@ -1044,193 +1096,200 @@ ${maintenanceNotes || "No additional remarks."}
                 </CardContent>
               </Card>
             </div>
-            )}
           </TabsContent>
 
-          {/* Maintenance Checklist Content (from checklist.tsx) */}
+          {/* Maintenance Checklist */}
           <TabsContent value="maintenance-checklist">
-            {currentAlert && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-blue-600" />
-                    Maintenance Checklist
-                  </CardTitle>
-                  <CardDescription>
-                    Complete maintenance tasks following standard procedures, ensure all steps are executed
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {!isTaskStarted ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <AlertTriangle className="h-12 w-12 text-amber-500 mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No Active Maintenance Task</h3>
-                      <p className="text-gray-500 max-w-md">
-                        Please start a maintenance task from the fault notification, then return to this page to complete the
-                        maintenance checklist.
-                      </p>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-blue-600" />
+                  Maintenance Checklist
+                </CardTitle>
+                <CardDescription>
+                  Complete maintenance tasks following standard procedures, ensure all steps are executed
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!isTaskStarted ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <AlertTriangle className="h-12 w-12 text-amber-500 mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No Active Maintenance Task</h3>
+                    <p className="text-gray-500 max-w-md">
+                      Please start a maintenance task from the fault notification, then return to this page to complete
+                      the maintenance checklist.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Progress overview */}
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-medium text-blue-900">Overall Progress</h3>
+                        <span className="text-sm text-blue-700">
+                          {completedChecklistItems} / {totalChecklistItems} items completed
+                        </span>
+                      </div>
+                      <div className="w-full bg-blue-200 rounded-full h-2">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${totalChecklistItems > 0 ? (completedChecklistItems / totalChecklistItems) * 100 : 0}%`,
+                          }}
+                        ></div>
+                      </div>
                     </div>
-                  ) : maintenanceChecklistItems.length === 0 ? (
-                     <div className="flex flex-col items-center justify-center py-8 text-center">
-                       <AlertTriangle className="h-12 w-12 text-yellow-500 mb-4" />
-                       <h3 className="text-lg font-medium mb-2">No Checklist Items Generated</h3>
-                       <p className="text-gray-500 max-w-md">
-                         Maintenance checklist items will be generated when a task is started.
-                       </p>
-                     </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {/* Progress overview */}
-                      <div className="bg-blue-50 p-4 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-medium text-blue-900">Overall Progress</h3>
-                          <span className="text-sm text-blue-700">
-                            {completedChecklistItems} / {totalChecklistItems} items completed
-                          </span>
-                        </div>
-                        <div className="w-full bg-blue-200 rounded-full h-2">
-                          <div
-                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${totalChecklistItems > 0 ? (completedChecklistItems / totalChecklistItems) * 100 : 0}%`,
-                            }}
-                          ></div>
-                        </div>
-                      </div>
 
-                      {/* Phase 1: Pre-departure preparation */}
-                      <div className="border rounded-lg overflow-hidden">
-                        <div className="bg-green-50 px-4 py-3 border-b">
-                          <h3 className="font-medium text-green-800 flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-green-600 text-white text-sm flex items-center justify-center">
-                              1
-                            </div>
-                            Pre-departure Preparation
-                          </h3>
-                        </div>
-                        <div className="divide-y">
-                          {maintenanceChecklistItems
-                            .filter((item) => item.phase === "preparation")
-                            .map((item) => (
-                              <div
-                                key={item.id}
-                                className={`px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors ${item.checked ? "bg-green-50" : ""}`}
-                              >
-                                <div
-                                  className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer ${item.checked ? "bg-green-500 border-green-500 text-white" : "border-gray-300"}`}
-                                  onClick={() => handleMaintenanceChecklistToggle(item.id)}
-                                >
-                                  {item.checked && <Check className="h-3 w-3" />}
-                                </div>
-                                <label
-                                  className={`flex-1 cursor-pointer ${item.checked ? "text-gray-500 line-through" : "text-gray-900"}`}
-                                  onClick={() => handleMaintenanceChecklistToggle(item.id)}
-                                >
-                                  {item.label}
-                                </label>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-
-                      {/* Phase 2: During maintenance */}
-                      <div className="border rounded-lg overflow-hidden">
-                        <div className="bg-orange-50 px-4 py-3 border-b">
-                          <h3 className="font-medium text-orange-800 flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-orange-600 text-white text-sm flex items-center justify-center">
-                              2
-                            </div>
-                            Maintenance Execution
-                          </h3>
-                        </div>
-                        <div className="divide-y">
-                          {maintenanceChecklistItems
-                            .filter((item) => item.phase === "maintenance")
-                            .map((item) => (
-                              <div
-                                key={item.id}
-                                className={`px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors ${item.checked ? "bg-green-50" : ""}`}
-                              >
-                                <div
-                                  className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer ${item.checked ? "bg-green-500 border-green-500 text-white" : "border-gray-300"}`}
-                                  onClick={() => handleMaintenanceChecklistToggle(item.id)}
-                                >
-                                  {item.checked && <Check className="h-3 w-3" />}
-                                </div>
-                                <label
-                                  className={`flex-1 cursor-pointer ${item.checked ? "text-gray-500 line-through" : "text-gray-900"}`}
-                                  onClick={() => handleMaintenanceChecklistToggle(item.id)}
-                                >
-                                  {item.label}
-                                </label>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-
-                      {/* Phase 3: Verify indicators */}
-                      <div className="border rounded-lg overflow-hidden">
-                        <div className="bg-blue-50 px-4 py-3 border-b">
-                          <h3 className="font-medium text-blue-800 flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-blue-600 text-white text-sm flex items-center justify-center">
-                              3
-                            </div>
-                            Verify All Indicators Normal
-                          </h3>
-                        </div>
-                        <div className="divide-y">
-                          {maintenanceChecklistItems
-                            .filter((item) => item.phase === "verification")
-                            .map((item) => (
-                              <div
-                                key={item.id}
-                                className={`px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors ${item.checked ? "bg-green-50" : ""}`}
-                              >
-                                <div
-                                  className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer ${item.checked ? "bg-green-500 border-green-500 text-white" : "border-gray-300"}`}
-                                  onClick={() => handleMaintenanceChecklistToggle(item.id)}
-                                >
-                                  {item.checked && <Check className="h-3 w-3" />}
-                                </div>
-                                <label
-                                  className={`flex-1 cursor-pointer ${item.checked ? "text-gray-500 line-through" : "text-gray-900"}`}
-                                  onClick={() => handleMaintenanceChecklistToggle(item.id)}
-                                >
-                                  {item.label}
-                                </label>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-
-                      {/* Completion status prompt */}
-                      {allChecklistItemsCompleted ? (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                          <div className="flex items-center gap-2 text-green-800">
-                            <CheckCircle className="h-5 w-5" />
-                            <span className="font-medium">All maintenance checklist items completed!</span>
+                    {/* Phase 1: Pre-departure preparation */}
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="bg-green-50 px-4 py-3 border-b">
+                        <h3 className="font-medium text-green-800 flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-green-600 text-white text-sm flex items-center justify-center">
+                            1
                           </div>
-                          <p className="text-sm text-green-700 mt-1">
-                            You can now click the "Complete Maintenance" button to finish the maintenance task.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                          <div className="flex items-center gap-2 text-amber-800">
-                            <AlertTriangle className="h-5 w-5" />
-                            <span className="font-medium">Please complete all checklist items</span>
-                          </div>
-                          <p className="text-sm text-amber-700 mt-1">
-                            {totalChecklistItems - completedChecklistItems} more items need to be completed before finishing
-                            the maintenance task.
-                          </p>
-                        </div>
-                      )}
+                          Pre-departure Preparation
+                        </h3>
+                      </div>
+                      <div className="divide-y">
+                        {maintenanceChecklistItems
+                          .filter((item) => item.phase === "preparation")
+                          .map((item) => (
+                            <div
+                              key={item.id}
+                              className={`px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors ${
+                                item.checked ? "bg-green-50" : ""
+                              }`}
+                            >
+                              <div
+                                className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer ${
+                                  item.checked ? "bg-green-500 border-green-500 text-white" : "border-gray-300"
+                                }`}
+                                onClick={() => handleMaintenanceChecklistToggle(item.id)}
+                              >
+                                {item.checked && <Check className="h-3 w-3" />}
+                              </div>
+                              <label
+                                className={`flex-1 cursor-pointer ${
+                                  item.checked ? "text-gray-500 line-through" : "text-gray-900"
+                                }`}
+                                onClick={() => handleMaintenanceChecklistToggle(item.id)}
+                              >
+                                {item.label}
+                              </label>
+                            </div>
+                          ))}
+                      </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+
+                    {/* Phase 2: During maintenance */}
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="bg-orange-50 px-4 py-3 border-b">
+                        <h3 className="font-medium text-orange-800 flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-orange-600 text-white text-sm flex items-center justify-center">
+                            2
+                          </div>
+                          Maintenance Execution
+                        </h3>
+                      </div>
+                      <div className="divide-y">
+                        {maintenanceChecklistItems
+                          .filter((item) => item.phase === "maintenance")
+                          .map((item) => (
+                            <div
+                              key={item.id}
+                              className={`px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors ${
+                                item.checked ? "bg-green-50" : ""
+                              }`}
+                            >
+                              <div
+                                className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer ${
+                                  item.checked ? "bg-green-500 border-green-500 text-white" : "border-gray-300"
+                                }`}
+                                onClick={() => handleMaintenanceChecklistToggle(item.id)}
+                              >
+                                {item.checked && <Check className="h-3 w-3" />}
+                              </div>
+                              <label
+                                className={`flex-1 cursor-pointer ${
+                                  item.checked ? "text-gray-500 line-through" : "text-gray-900"
+                                }`}
+                                onClick={() => handleMaintenanceChecklistToggle(item.id)}
+                              >
+                                {item.label}
+                              </label>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+
+                    {/* Phase 3: Verify indicators */}
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="bg-blue-50 px-4 py-3 border-b">
+                        <h3 className="font-medium text-blue-800 flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-blue-600 text-white text-sm flex items-center justify-center">
+                            3
+                          </div>
+                          Verify All Indicators Normal
+                        </h3>
+                      </div>
+                      <div className="divide-y">
+                        {maintenanceChecklistItems
+                          .filter((item) => item.phase === "verification")
+                          .map((item) => (
+                            <div
+                              key={item.id}
+                              className={`px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors ${
+                                item.checked ? "bg-green-50" : ""
+                              }`}
+                            >
+                              <div
+                                className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer ${
+                                  item.checked ? "bg-green-500 border-green-500 text-white" : "border-gray-300"
+                                }`}
+                                onClick={() => handleMaintenanceChecklistToggle(item.id)}
+                              >
+                                {item.checked && <Check className="h-3 w-3" />}
+                              </div>
+                              <label
+                                className={`flex-1 cursor-pointer ${
+                                  item.checked ? "text-gray-500 line-through" : "text-gray-900"
+                                }`}
+                                onClick={() => handleMaintenanceChecklistToggle(item.id)}
+                              >
+                                {item.label}
+                              </label>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+
+                    {/* Completion status prompt */}
+                    {allChecklistItemsCompleted ? (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="flex items-center gap-2 text-green-800">
+                          <CheckCircle className="h-5 w-5" />
+                          <span className="font-medium">All maintenance checklist items completed!</span>
+                        </div>
+                        <p className="text-sm text-green-700 mt-1">
+                          You can now click the "Complete Maintenance" button to finish the maintenance task.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                        <div className="flex items-center gap-2 text-amber-800">
+                          <AlertTriangle className="h-5 w-5" />
+                          <span className="font-medium">Please complete all checklist items</span>
+                        </div>
+                        <p className="text-sm text-amber-700 mt-1">
+                          {totalChecklistItems - completedChecklistItems} more items need to be completed before
+                          finishing the maintenance task.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Maintenance assistance */}
@@ -1252,13 +1311,11 @@ ${maintenanceNotes || "No additional remarks."}
                     {chatMessages.map((msg, index) => (
                       <div key={index} className={`flex ${msg.type === "user" ? "justify-end" : "justify-start"}`}>
                         <div
-                          className={`max-w-[80%] p-3 rounded-lg ${msg.type === "user" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-900"} text-sm leading-relaxed`}
+                          className={`max-w-[80%] p-3 rounded-lg ${
+                            msg.type === "user" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-900"
+                          }`}
                         >
-                          {msg.type === "user" ? (
-                            <p className="text-sm">{msg.message}</p>
-                          ) : (
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.message}</ReactMarkdown>
-                          )}
+                          <p className="text-sm">{msg.message}</p>
                           <p className={`text-xs mt-1 ${msg.type === "user" ? "text-blue-100" : "text-gray-500"}`}>
                             {msg.timestamp}
                           </p>
@@ -1319,7 +1376,7 @@ ${maintenanceNotes || "No additional remarks."}
                   </div>
                 </CardContent>
               </Card>
-            ) : currentAlert && (
+            ) : (
               // Report generation interface
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
@@ -1335,7 +1392,7 @@ ${maintenanceNotes || "No additional remarks."}
                         <h3 className="font-semibold mb-2">Basic Maintenance Information</h3>
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <p>
-                            <strong>Substation:</strong> {currentAlert.stationInfo?.number}
+                            <strong>Substation:</strong> {currentAlert.stationInfo.number}
                           </p>
                           <p>
                             <strong>Date:</strong> {new Date().toLocaleDateString("en-GB")}
@@ -1361,7 +1418,7 @@ ${maintenanceNotes || "No additional remarks."}
                       <div className="p-4 bg-gray-50 rounded-lg">
                         <h3 className="font-semibold mb-2">Maintenance Process</h3>
                         <ul className="text-sm space-y-1">
-                          {(currentAlert.maintenanceSteps || []).map((step, index) => (
+                          {currentAlert.maintenanceSteps.map((step, index) => (
                             <li key={index}>• {step}</li>
                           ))}
                         </ul>
@@ -1374,7 +1431,9 @@ ${maintenanceNotes || "No additional remarks."}
 
                       {isTaskStarted && (
                         <div
-                          className={`p-4 rounded-lg border ${isTaskCompleted ? "bg-green-50 border-green-200" : "bg-blue-50 border-blue-200"}`}
+                          className={`p-4 rounded-lg border ${
+                            isTaskCompleted ? "bg-green-50 border-green-200" : "bg-blue-50 border-blue-200"
+                          }`}
                         >
                           <h3 className={`font-semibold mb-2 ${isTaskCompleted ? "text-green-800" : "text-blue-800"}`}>
                             Current Task Status
@@ -1456,122 +1515,118 @@ ${maintenanceNotes || "No additional remarks."}
               </div>
             )}
           </TabsContent>
-
-          {/* Equipment Inspection Checklist Content (from checklist.tsx) */}
+          {/* Equipment Inspection Checklist */}
           <TabsContent value="inspection">
-            {currentAlert && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    Equipment Inspection Checklist
-                  </CardTitle>
-                  <CardDescription>Verify equipment status before proceeding with maintenance</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {!isTaskStarted ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <AlertTriangle className="h-12 w-12 text-amber-500 mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No Active Maintenance Task</h3>
-                      <p className="text-gray-500 max-w-md">
-                        Please start a maintenance task from the notification alert to generate an inspection checklist.
-                      </p>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  Equipment Inspection Checklist
+                </CardTitle>
+                <CardDescription>Verify equipment status before proceeding with maintenance</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!isTaskStarted ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <AlertTriangle className="h-12 w-12 text-amber-500 mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No Active Maintenance Task</h3>
+                    <p className="text-gray-500 max-w-md">
+                      Please start a maintenance task from the notification alert to generate an inspection checklist.
+                    </p>
+                  </div>
+                ) : checklistSubmitted ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <CheckCircle className="h-12 w-12 text-green-500 mb-4" />
+                    <h3 className="text-lg font-medium mb-2">Inspection Completed</h3>
+                    <p className="text-gray-500 max-w-md mb-4">
+                      Equipment inspection checklist has been successfully submitted to the database.
+                    </p>
+                    <Button variant="outline" onClick={generateChecklistItems}>
+                      Reset Checklist
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-medium">Inspection Progress</h3>
+                        <p className="text-sm text-gray-500">
+                          {checklistItems.filter((item) => item.checked).length} of {checklistItems.length} items
+                          checked
+                        </p>
+                      </div>
+                      <div className="w-32 h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-green-500 transition-all duration-300"
+                          style={{ width: `${checklistProgress}%` }}
+                        ></div>
+                      </div>
                     </div>
-                  ) : checklistItems.length === 0 ? (
-                     <div className="flex flex-col items-center justify-center py-8 text-center">
-                       <AlertTriangle className="h-12 w-12 text-yellow-500 mb-4" />
-                       <h3 className="text-lg font-medium mb-2">No Checklist Items Generated</h3>
-                       <p className="text-gray-500 max-w-md">
-                         Inspection checklist items will be generated when a task is started.
-                       </p>
-                     </div>
-                  ) : checklistSubmitted ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <CheckCircle className="h-12 w-12 text-green-500 mb-4" />
-                      <h3 className="text-lg font-medium mb-2">Inspection Completed</h3>
-                      <p className="text-gray-500 max-w-md mb-4">
-                        Equipment inspection checklist has been successfully submitted to the database.
-                      </p>
-                      <Button variant="outline" onClick={generateChecklistItems}>
-                        Reset Checklist
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-medium">Inspection Progress</h3>
-                          <p className="text-sm text-gray-500">
-                            {checklistItems.filter((item) => item.checked).length} of {checklistItems.length} items checked
-                          </p>
-                        </div>
-                        <div className="w-32 h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-green-500 transition-all duration-300"
-                            style={{ width: `${checklistProgress}%` }}
-                          ></div>
+
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="bg-gray-50 px-4 py-3 border-b">
+                        <div className="grid grid-cols-12 gap-4 text-sm font-medium text-gray-500">
+                          <div className="col-span-1">Status</div>
+                          <div className="col-span-11">Inspection Item</div>
                         </div>
                       </div>
 
-                      <div className="border rounded-lg overflow-hidden">
-                        <div className="bg-gray-50 px-4 py-3 border-b">
-                          <div className="grid grid-cols-12 gap-4 text-sm font-medium text-gray-500">
-                            <div className="col-span-1">Status</div>
-                            <div className="col-span-11">Inspection Item</div>
-                          </div>
-                        </div>
-
-                        <div className="divide-y">
-                          {checklistItems.map((item) => (
-                            <div
-                              key={item.id}
-                              className={`px-4 py-3 grid grid-cols-12 gap-4 items-center hover:bg-gray-50 transition-colors ${item.checked ? "bg-green-50" : ""}`}
-                            >
-                              <div className="col-span-1">
-                                <div
-                                  className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer ${item.checked ? "bg-green-500 border-green-500 text-white" : "border-gray-300"}`}
-                                  onClick={() => handleChecklistItemToggle(item.id)}
-                                >
-                                  {item.checked && <Check className="h-3 w-3" />}
-                                </div>
-                              </div>
-                              <label
-                                className={`col-span-11 cursor-pointer ${item.checked ? "text-gray-500" : "text-gray-900"}`}
+                      <div className="divide-y">
+                        {checklistItems.map((item) => (
+                          <div
+                            key={item.id}
+                            className={`px-4 py-3 grid grid-cols-12 gap-4 items-center hover:bg-gray-50 transition-colors ${
+                              item.checked ? "bg-green-50" : ""
+                            }`}
+                          >
+                            <div className="col-span-1">
+                              <div
+                                className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer ${
+                                  item.checked ? "bg-green-500 border-green-500 text-white" : "border-gray-300"
+                                }`}
                                 onClick={() => handleChecklistItemToggle(item.id)}
                               >
-                                {item.label}
-                              </label>
+                                {item.checked && <Check className="h-3 w-3" />}
+                              </div>
                             </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end">
-                        <Button
-                          onClick={handleSubmitChecklist}
-                          disabled={checklistProgress < 100 || isSubmittingChecklist}
-                          className="min-w-[150px]"
-                        >
-                          {isSubmittingChecklist ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Updating...
-                            </>
-                          ) : checklistProgress < 100 ? (
-                            "Complete All Items"
-                          ) : (
-                            <>
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Update Database
-                            </>
-                          )}
-                        </Button>
+                            <label
+                              className={`col-span-11 cursor-pointer ${
+                                item.checked ? "text-gray-500" : "text-gray-900"
+                              }`}
+                              onClick={() => handleChecklistItemToggle(item.id)}
+                            >
+                              {item.label}
+                            </label>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={handleSubmitChecklist}
+                        disabled={checklistProgress < 100 || isSubmittingChecklist}
+                        className="min-w-[150px]"
+                      >
+                        {isSubmittingChecklist ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Updating...
+                          </>
+                        ) : checklistProgress < 100 ? (
+                          "Complete All Items"
+                        ) : (
+                          <>
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Update Database
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
