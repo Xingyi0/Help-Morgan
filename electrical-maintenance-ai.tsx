@@ -493,34 +493,77 @@ ${maintenanceNotes || "No additional remarks."}
     }
   }
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!currentMessage.trim()) return
 
-    const newMessages = [
-      ...chatMessages,
-      {
-        type: "user",
-        message: currentMessage,
-        timestamp: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
-      },
-    ]
+    const userMessage = {
+      type: "user",
+      message: currentMessage,
+      timestamp: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+    };
 
-    // Simulate AI response
-    setTimeout(() => {
-      let aiResponse = ""
-      if (currentMessage.toLowerCase().includes("broken") || currentMessage.toLowerCase().includes("fault")) {
-        aiResponse =
-          "Based on sensor data, the equipment shows abnormal current readings. I recommend checking connection lines and fuses. Historical records indicate similar faults are usually caused by poor contact."
-      } else if (currentMessage.toLowerCase().includes("check") || currentMessage.toLowerCase().includes("inspect")) {
-        aiResponse =
-          "Yes, I recommend inspecting that component. Based on equipment runtime and maintenance records, the component may show signs of wear. Please use a multimeter to measure resistance values."
-      } else if (currentMessage.toLowerCase().includes("replace")) {
-        aiResponse =
-          "Equipment C has been operating for 8 years, exceeding the recommended service life (6 years). Replacement is recommended. Spare parts are in stock, model XYZ-2024."
-      } else {
-        aiResponse =
-          "I understand your question. Please provide more detailed information, such as specific fault symptoms, equipment model, or error codes, so I can give more accurate advice."
+    setChatMessages((prev) => [...prev, userMessage]);
+    setCurrentMessage("");
+
+    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+    if (!apiKey) {
+      console.error("OpenAI API key is not set.");
+      // Optionally, add an AI message indicating the error
+       setChatMessages((prev) => [
+        ...prev,
+        {
+          type: "ai",
+          message: "Error: OpenAI API key is not configured.",
+          timestamp: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+        },
+      ]);
+      return;
+    }
+
+    try {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-3.5-turbo", // Or another suitable model like gpt-4
+          messages: [
+            {
+              role: "system",
+              content: "You are a helpful maintenance assistant for electrical substations. Provide guidance based on equipment data, historical cases, and general electrical knowledge."
+            },
+            ...chatMessages.map(msg => ({
+              role: msg.type === 'user' ? 'user' : 'assistant',
+              content: msg.message
+            })),
+            {
+              role: "user",
+              content: currentMessage
+            }
+          ],
+          max_tokens: 500, // Adjust as needed
+          temperature: 0.7, // Adjust as needed
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("OpenAI API error:", errorData);
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            type: "ai",
+            message: `Error: Failed to get response from AI. ${errorData.error?.message || response.statusText}`,
+            timestamp: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+          },
+        ]);
+        return;
       }
+
+      const data = await response.json();
+      const aiResponse = data.choices[0].message.content;
 
       setChatMessages((prev) => [
         ...prev,
@@ -529,12 +572,20 @@ ${maintenanceNotes || "No additional remarks."}
           message: aiResponse,
           timestamp: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
         },
-      ])
-    }, 1000)
+      ]);
 
-    setChatMessages(newMessages)
-    setCurrentMessage("")
-  }
+    } catch (error) {
+      console.error("Error calling OpenAI API:", error);
+       setChatMessages((prev) => [
+        ...prev,
+        {
+          type: "ai",
+          message: "Error: Failed to connect to AI service.",
+          timestamp: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+        },
+      ]);
+    }
+  };
 
   // End task function
   const handleEndTask = () => {
