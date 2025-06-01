@@ -1,7 +1,8 @@
 ## Overview
 This project introduces a Field Service AI Assistant designed specifically for frontline maintenance technicians in the power industry. The system supports mobile deployment on rugged devices, optimized for harsh on-site environments where typing or multitasking is difficult.
-# Use Case Scenario:
+### Use Case Scenario:
 When a transformer fault alarm is triggered in a remote substation, the technician must quickly prepare and travel to the location. This assistant provides intelligent, real-time support throughout the entire repair workflow — from preparation to reporting.
+
 
 ## Deployment
 
