@@ -8,18 +8,12 @@ Morgan is a field technician responsible for maintaining remote electrical subst
 
 ## Demostration
 You can visit the service at:https://help-morgan-pb1r.vercel.app/
-
+The workflow is:  
+1. Click the task warning pop-up  
+2. Finished all the checklists  
+3. In the process of the work, you can ask our AI assistant for help
+4. When everything is finished, mark the task as completed
+5. Ask the AI assistant to generate the report and export it as PDF
 ## Deployment
 TBA  
 
-
-
-
-        
- # Recreate Figma UI
-
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/xsxs-projects-28318aca/v0-recreate-figma-ui)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/iE1L0xHOSBi)
